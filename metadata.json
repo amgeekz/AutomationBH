@@ -1,0 +1,6 @@
+{
+  "name": "Digiflazz Auto Update Dashboard",
+  "description": "Web-based dashboard of Digiflazz Auto Update tool to configure update rules, verify licenses, parse connection headers, test balance live, and compile customized extension/bookmarklet scripts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
