@@ -6,7 +6,7 @@ import cron from "node-cron";
 import parser from "cron-parser";
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json());
 
@@ -235,6 +235,7 @@ async function startServer() {
       console.log("[Scheduler] Launching Headless Chromium session...");
       const browser = await puppeteer.launch({
         headless: true,
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
         args: [
           "--no-sandbox",
           "--disable-setuid-sandbox",
@@ -417,6 +418,7 @@ async function startServer() {
         
         const browser = await puppeteer.launch({
           headless: true,
+          executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
           args: [
             "--no-sandbox",
             "--disable-setuid-sandbox",
