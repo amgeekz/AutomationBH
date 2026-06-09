@@ -6,11 +6,16 @@ import { compileHeadlessScript } from "./src/utils/headlessScript.js";
 import cron from "node-cron";
 import parser from "cron-parser";
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+const app = express();
+const PORT = 3000;
 
-  app.use(express.json());
+app.use(express.json());
+
+// Export app instance for serverless platforms like Vercel
+export { app };
+export default app;
+
+async function startServer() {
 
   // API Route - Health Check
   app.get("/api/health", (req, res) => {
@@ -611,14 +616,47 @@ async function startServer() {
     res.json({ success: true, message: "History cleared." });
   });
 
+  // Vercel Cron Job Trigger Endpoint (HTTP Trigger)
+  app.get("/api/automation/run-cron", async (req, res) => {
+    // Basic security token to prevent spam
+    const cronSecret = process.env.CRON_SECRET || process.env.VERCEL_CRON_JWT;
+    const clientSecret = req.query.secret || req.headers["x-cron-secret"];
+    
+    if (cronSecret && clientSecret !== cronSecret) {
+      return res.status(401).json({ error: "Unauthorized: Invalid or missing cron secret." });
+    }
+
+    if (!activeSchedule.enabled) {
+      return res.json({ success: false, message: "Scheduler is currently disabled in app settings." });
+    }
+
+    console.log("[Vercel Cron] Triggering scheduled sync...");
+    
+    // On Serverless platforms, we MUST await execution so the container doesn't terminate early.
+    try {
+      await executeScheduledSync();
+      res.json({
+        success: true,
+        message: "Automated cron sync completed successfully via trigger.",
+        lastRun: activeSchedule.lastRun,
+        history: activeSchedule.history[0] || null
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (!process.env.VERCEL) {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
@@ -626,9 +664,11 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[Proxy Server] running on http://localhost:${PORT}`);
-  });
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`[Proxy Server] running on http://localhost:${PORT}`);
+    });
+  }
 }
 
 startServer();
